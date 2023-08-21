@@ -1,0 +1,277 @@
+<html>
+<head>
+<title>Journal_routs.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #6a8759;}
+.s3 { color: #808080;}
+.s4 { color: #6897bb;}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Journal_routs.py</font>
+</center></td></tr></table>
+<pre><span class="s0">import </span><span class="s1">pymongo</span>
+<span class="s0">from </span><span class="s1">fastapi </span><span class="s0">import </span><span class="s1">APIRouter</span>
+<span class="s0">from </span><span class="s1">config.Journal </span><span class="s0">import </span><span class="s1">collection_name</span>
+<span class="s0">from </span><span class="s1">models.Journal_models </span><span class="s0">import </span><span class="s1">iRef_Data1</span>
+<span class="s0">from </span><span class="s1">models.Journal_models </span><span class="s0">import </span><span class="s1">Reference</span>
+<span class="s0">from </span><span class="s1">schemas.Journal_schemas </span><span class="s0">import </span><span class="s1">Journal_serializer</span><span class="s0">, </span><span class="s1">Journal_serializer2</span>
+<span class="s0">from </span><span class="s1">bson </span><span class="s0">import </span><span class="s1">ObjectId</span>
+<span class="s0">from </span><span class="s1">fastapi </span><span class="s0">import </span><span class="s1">FastAPI</span>
+<span class="s0">import </span><span class="s1">requests</span>
+<span class="s0">import </span><span class="s1">json</span>
+
+
+<span class="s1">client = pymongo.MongoClient(</span><span class="s2">&quot;mongodb://localhost:27017/&quot;</span><span class="s1">)</span>
+<span class="s1">mydb = client[</span><span class="s2">&quot;iRef_Data1&quot;</span><span class="s1">]</span>
+<span class="s1">collection_name = mydb[</span><span class="s2">&quot;goldData&quot;</span><span class="s1">]</span>
+
+
+<span class="s1">app = FastAPI()</span>
+
+<span class="s1">iRef_Data1_api_router = APIRouter()</span>
+<span class="s3">#  get</span>
+
+
+<span class="s1">@iRef_Data1_api_router.get(</span><span class="s2">'/'</span><span class="s1">)</span>
+<span class="s0">async def </span><span class="s1">get_iRef_Data1(start</span><span class="s0">, </span><span class="s1">end):</span>
+    <span class="s1">iRef_Data1 = Journal_serializer(collection_name.find())[int(start):int(end)]</span>
+    <span class="s0">return </span><span class="s1">{</span><span class="s2">&quot;status&quot;</span><span class="s1">: </span><span class="s2">&quot;OK&quot;</span><span class="s0">, </span><span class="s2">&quot;Data&quot;</span><span class="s1">: iRef_Data1}</span>
+
+<span class="s3"># @iRef_Data1_api_router.post(&quot;/find&quot;)</span>
+<span class="s3"># async def post_iRef_Data1(iRef_Data2: FindReference):</span>
+<span class="s3">#     _id = print(dict(iRef_Data2))</span>
+<span class="s3">#     return {&quot;Status&quot;: &quot;OK&quot;, &quot;Data&quot;: _id}</span>
+<span class="s3"># p7 =  [{&quot;id&quot;: &quot;bib1&quot;, &quot;refstring&quot;: FindReference}]</span>
+<span class="s3"># payload1 = {'findReference': p7}</span>
+
+<span class="s3"># @iRef_Data1_api_router.post(&quot;/&quot;)</span>
+<span class="s3"># async def post_iRef_Data1(iRef_Data1: iRef_Data1):</span>
+<span class="s3">#     _id = collection_name1.insert_one(dict(iRef_Data1))</span>
+<span class="s3">#     iRef_Data1 = Journal_serializer(collection_name1.find({&quot;_id&quot;: _id.inserted_id}))</span>
+<span class="s3">#     return {&quot;Status&quot;: &quot;OK&quot;, &quot;Data&quot;: iRef_Data1}</span>
+
+
+<span class="s1">@iRef_Data1_api_router.post(</span><span class="s2">'/reference/'</span><span class="s1">)</span>
+<span class="s0">async def </span><span class="s1">post_Reference(reference: Reference):</span>
+    <span class="s0">try</span><span class="s1">:</span>
+        <span class="s1">url = </span><span class="s2">&quot;https://irefservices.icodex.in/find/references&quot;</span>
+
+        <span class="s1">payload = json.dumps(reference.reference)</span>
+
+        <span class="s1">files = [</span>
+
+        <span class="s1">]</span>
+        <span class="s1">headers = {</span>
+           <span class="s2">'iRefRefApiKey'</span><span class="s1">: </span><span class="s2">'APIKEYFORIREFPRODUCT'</span><span class="s0">,</span>
+           <span class="s2">'Content-Type'</span><span class="s1">: </span><span class="s2">'application/json'</span>
+          <span class="s1">}</span>
+
+        <span class="s1">response = requests.request(</span><span class="s2">&quot;POST&quot;</span><span class="s0">, </span><span class="s1">url</span><span class="s0">, </span><span class="s1">headers=headers</span><span class="s0">, </span><span class="s1">data=payload</span><span class="s0">, </span><span class="s1">files=files)</span>
+        <span class="s1">print(response.status_code)</span>
+        <span class="s1">data = response.json()</span>
+        <span class="s3"># print(data)</span>
+        <span class="s1">op = []</span>
+        <span class="s1">jsonData = json.loads(data[</span><span class="s2">&quot;JsonData&quot;</span><span class="s1">])</span>
+        <span class="s0">for </span><span class="s1">pq </span><span class="s0">in </span><span class="s1">jsonData:</span>
+            <span class="s3"># del pq['FullReferenceString']</span>
+            <span class="s3"># del pq['InternalBibId']</span>
+
+            <span class="s1">trackchanges_dict = {}</span>
+            <span class="s0">if </span><span class="s1">pq.get(</span><span class="s2">&quot;ComparedReferenceString&quot;</span><span class="s1">) </span><span class="s0">is not None</span><span class="s1">:</span>
+                <span class="s1">trackchanges_dict[</span><span class="s2">&quot;Track_Changes_Reference&quot;</span><span class="s1">] = pq.get(</span><span class="s2">&quot;ComparedReferenceString&quot;</span><span class="s1">)</span>
+            <span class="s1">dict = {}</span>
+            <span class="s0">if </span><span class="s1">pq.get(</span><span class="s2">&quot;type&quot;</span><span class="s1">) </span><span class="s0">is not None</span><span class="s1">:</span>
+                <span class="s1">dict[</span><span class="s2">&quot;type&quot;</span><span class="s1">] = pq.get(</span><span class="s2">&quot;type&quot;</span><span class="s1">)</span>
+            <span class="s0">else</span><span class="s1">:</span>
+                <span class="s1">dict[</span><span class="s2">&quot;type&quot;</span><span class="s1">] = </span><span class="s2">&quot;&quot;</span>
+
+            <span class="s0">if </span><span class="s1">pq.get(</span><span class="s2">&quot;authors&quot;</span><span class="s1">) </span><span class="s0">is not None</span><span class="s1">:</span>
+                <span class="s1">author1 = []</span>
+                <span class="s1">sm = pq.get(</span><span class="s2">&quot;authors&quot;</span><span class="s1">)</span>
+                <span class="s1">dict_2 = {}</span>
+                <span class="s0">for </span><span class="s1">sa </span><span class="s0">in </span><span class="s1">sm:</span>
+                    <span class="s0">if </span><span class="s1">sa.get(</span><span class="s2">&quot;lastname&quot;</span><span class="s1">) </span><span class="s0">is not None</span><span class="s1">:</span>
+                        <span class="s1">dict_2[</span><span class="s2">&quot;lastname&quot;</span><span class="s1">] = sa.get(</span><span class="s2">&quot;lastname&quot;</span><span class="s1">)</span>
+                    <span class="s0">else</span><span class="s1">:</span>
+                        <span class="s1">dict_2[</span><span class="s2">&quot;lastname&quot;</span><span class="s1">] = </span><span class="s2">&quot;&quot;</span>
+                    <span class="s0">if </span><span class="s1">sa.get(</span><span class="s2">&quot;firstname&quot;</span><span class="s1">) </span><span class="s0">is not None</span><span class="s1">:</span>
+                        <span class="s1">dict_2[</span><span class="s2">&quot;firstname&quot;</span><span class="s1">] = sa.get(</span><span class="s2">&quot;firstname&quot;</span><span class="s1">)</span>
+                    <span class="s0">else</span><span class="s1">:</span>
+                        <span class="s1">dict_2[</span><span class="s2">&quot;firstname&quot;</span><span class="s1">] = </span><span class="s2">&quot;&quot;</span>
+                    <span class="s1">author1.append(dict_2)</span>
+                    <span class="s1">dict[</span><span class="s2">&quot;authors&quot;</span><span class="s1">] = author1</span>
+            <span class="s0">else</span><span class="s1">:</span>
+                <span class="s1">dict[</span><span class="s2">&quot;authors&quot;</span><span class="s1">] = </span><span class="s2">&quot;&quot;</span>
+            <span class="s0">if </span><span class="s1">pq.get(</span><span class="s2">&quot;groups&quot;</span><span class="s1">) </span><span class="s0">is not None</span><span class="s1">:</span>
+                <span class="s1">dict[</span><span class="s2">&quot;groups&quot;</span><span class="s1">] = pq.get(</span><span class="s2">&quot;groups&quot;</span><span class="s1">)</span>
+            <span class="s0">else</span><span class="s1">:</span>
+                <span class="s1">dict[</span><span class="s2">&quot;groups&quot;</span><span class="s1">] = []</span>
+            <span class="s0">if </span><span class="s1">pq.get(</span><span class="s2">&quot;firstPage&quot;</span><span class="s1">) </span><span class="s0">is not None</span><span class="s1">:</span>
+                <span class="s1">dict[</span><span class="s2">&quot;firstPage&quot;</span><span class="s1">] = pq.get(</span><span class="s2">&quot;firstPage&quot;</span><span class="s1">)</span>
+            <span class="s0">else</span><span class="s1">:</span>
+                <span class="s1">dict[</span><span class="s2">&quot;firstPage&quot;</span><span class="s1">] = </span><span class="s2">&quot;&quot;</span>
+            <span class="s0">if </span><span class="s1">pq.get(</span><span class="s2">&quot;lastPage&quot;</span><span class="s1">) </span><span class="s0">is not None</span><span class="s1">:</span>
+                <span class="s1">dict[</span><span class="s2">&quot;lastPage&quot;</span><span class="s1">] = pq.get(</span><span class="s2">&quot;lastPage&quot;</span><span class="s1">)</span>
+            <span class="s0">else</span><span class="s1">:</span>
+                <span class="s1">dict[</span><span class="s2">&quot;lastPage&quot;</span><span class="s1">] = </span><span class="s2">&quot;&quot;</span>
+            <span class="s0">if </span><span class="s1">pq.get(</span><span class="s2">&quot;issue&quot;</span><span class="s1">) </span><span class="s0">is not None</span><span class="s1">:</span>
+                <span class="s1">dict[</span><span class="s2">&quot;issue&quot;</span><span class="s1">] = pq.get(</span><span class="s2">&quot;issue&quot;</span><span class="s1">)</span>
+            <span class="s0">else</span><span class="s1">:</span>
+                <span class="s1">dict[</span><span class="s2">&quot;issue&quot;</span><span class="s1">] = </span><span class="s2">&quot;&quot;</span>
+            <span class="s0">if </span><span class="s1">pq.get(</span><span class="s2">&quot;journalTitle&quot;</span><span class="s1">) </span><span class="s0">is not None</span><span class="s1">:</span>
+                <span class="s1">dict[</span><span class="s2">&quot;journalTitle&quot;</span><span class="s1">] = pq.get(</span><span class="s2">&quot;journalTitle&quot;</span><span class="s1">)</span>
+            <span class="s0">else</span><span class="s1">:</span>
+                <span class="s1">dict[</span><span class="s2">&quot;journalTitle&quot;</span><span class="s1">] = </span><span class="s2">&quot;&quot;</span>
+            <span class="s0">if </span><span class="s1">pq.get(</span><span class="s2">&quot;articleTitle&quot;</span><span class="s1">) </span><span class="s0">is not None</span><span class="s1">:</span>
+                <span class="s1">dict[</span><span class="s2">&quot;articleTitle&quot;</span><span class="s1">] = pq.get(</span><span class="s2">&quot;articleTitle&quot;</span><span class="s1">)</span>
+            <span class="s0">else</span><span class="s1">:</span>
+                <span class="s1">dict[</span><span class="s2">&quot;articleTitle&quot;</span><span class="s1">] = </span><span class="s2">&quot;&quot;</span>
+            <span class="s0">if </span><span class="s1">pq.get(</span><span class="s2">&quot;Doi&quot;</span><span class="s1">) </span><span class="s0">is not None</span><span class="s1">:</span>
+                <span class="s1">dict[</span><span class="s2">&quot;url&quot;</span><span class="s1">] = pq.get(</span><span class="s2">&quot;Doi&quot;</span><span class="s1">)</span>
+            <span class="s0">else</span><span class="s1">:</span>
+                <span class="s1">dict[</span><span class="s2">&quot;url&quot;</span><span class="s1">] = </span><span class="s2">&quot;&quot;</span>
+            <span class="s0">if </span><span class="s1">pq.get(</span><span class="s2">&quot;volume&quot;</span><span class="s1">) </span><span class="s0">is not None</span><span class="s1">:</span>
+                <span class="s1">dict[</span><span class="s2">&quot;volume&quot;</span><span class="s1">] = pq.get(</span><span class="s2">&quot;volume&quot;</span><span class="s1">)</span>
+            <span class="s0">else</span><span class="s1">:</span>
+                <span class="s1">dict[</span><span class="s2">&quot;volume&quot;</span><span class="s1">] = </span><span class="s2">&quot;&quot;</span>
+            <span class="s0">if </span><span class="s1">pq.get(</span><span class="s2">&quot;elocator&quot;</span><span class="s1">) </span><span class="s0">is not None</span><span class="s1">:</span>
+                <span class="s1">dict[</span><span class="s2">&quot;elocator&quot;</span><span class="s1">] = pq.get(</span><span class="s2">&quot;elocator&quot;</span><span class="s1">)</span>
+            <span class="s0">else</span><span class="s1">:</span>
+                <span class="s1">dict[</span><span class="s2">&quot;elocator&quot;</span><span class="s1">] = </span><span class="s2">&quot;&quot;</span>
+            <span class="s0">if </span><span class="s1">pq.get(</span><span class="s2">&quot;year&quot;</span><span class="s1">) </span><span class="s0">is not None</span><span class="s1">:</span>
+                <span class="s1">dict[</span><span class="s2">&quot;year&quot;</span><span class="s1">] = pq.get(</span><span class="s2">&quot;year&quot;</span><span class="s1">)</span>
+
+            <span class="s1">dict[</span><span class="s2">&quot;referencestyle&quot;</span><span class="s1">] = reference.referenceStyle</span>
+            <span class="s1">finaljson = json.dumps(dict</span><span class="s0">, </span><span class="s1">indent=</span><span class="s4">2</span><span class="s0">, </span><span class="s1">sort_keys=</span><span class="s0">True</span><span class="s1">)</span>
+            <span class="s1">op.append(dict)</span>
+            <span class="s3"># print(finaljson)</span>
+
+            <span class="s1">url = </span><span class="s2">&quot;https://uateassistantservices.icodex.in/edifix/reference/restructure&quot;</span>
+
+            <span class="s1">payload = json.dumps(</span>
+                <span class="s1">dict</span>
+            <span class="s1">)</span>
+            <span class="s1">headers = {</span>
+                <span class="s2">'JID'</span><span class="s1">: </span><span class="s2">'ASAP'</span><span class="s0">,</span>
+                <span class="s2">'eAssistantXApiKey'</span><span class="s1">: </span><span class="s2">'CUCCLI11UI#AB'</span><span class="s0">,</span>
+                <span class="s2">'Content-Type'</span><span class="s1">: </span><span class="s2">'application/json'</span>
+            <span class="s1">}</span>
+
+            <span class="s1">response = requests.request(</span><span class="s2">&quot;POST&quot;</span><span class="s0">, </span><span class="s1">url</span><span class="s0">, </span><span class="s1">headers=headers</span><span class="s0">, </span><span class="s1">data=payload)</span>
+            <span class="s1">restructredjson = response.json()</span>
+            <span class="s1">print(reference)</span>
+
+
+        <span class="s0">return </span><span class="s1">{</span><span class="s2">&quot;Sliced_Reference&quot;</span><span class="s1">:  dict</span><span class="s0">, </span><span class="s2">&quot;Structured_Reference&quot;</span><span class="s1">: restructredjson</span><span class="s0">, </span><span class="s2">&quot;Track_Changes_Reference&quot;</span><span class="s1">: trackchanges_dict}</span>
+    <span class="s0">except</span><span class="s1">:</span>
+        <span class="s0">return </span><span class="s1">{print(reference)}</span>
+        <span class="s1">print(payload)</span>
+
+<span class="s3">#  post</span>
+<span class="s3">#</span>
+<span class="s3"># @iRef_Data1_api_router.post('/')</span>
+<span class="s3"># async def get_iRef_Data1(iRef_Data1: iRef_Data1):</span>
+<span class="s3">#     _id = collection_name1.insert_one(dict(iRef_Data1))</span>
+<span class="s3">#     iRef_Data1 = Journal_serializer(collection_name1.find({&quot;_id&quot;: _id.inserted_id}))</span>
+<span class="s3">#     response = requests.post('http://192.168.1.141/iRref_Data1')</span>
+<span class="s3">#</span>
+<span class="s3">#     return {&quot;status&quot;: &quot;OK&quot;, &quot;Data&quot;: response.content}</span>
+<span class="s3">#</span>
+
+
+<span class="s3"># @iRef_Data1_api_router.post(&quot;/&quot;)</span>
+<span class="s3"># async def post_iRef_Data1(iRef_Data1: iRef_Data1):</span>
+<span class="s3">#     _id = collection_name1.insert_one(dict(iRef_Data1))</span>
+<span class="s3">#     iRef_Data1 = Journal_serializer(collection_name1.find({&quot;_id&quot;: _id.inserted_id}))</span>
+<span class="s3">#     return {&quot;Status&quot;: &quot;OK&quot;, &quot;Data&quot;: iRef_Data1}</span>
+
+<span class="s3"># delete</span>
+
+
+<span class="s1">@iRef_Data1_api_router.delete(</span><span class="s2">&quot;/{id}&quot;</span><span class="s1">)</span>
+<span class="s0">async def </span><span class="s1">delete_iRef_Data1(id: str):</span>
+    <span class="s1">collection_name.find_one_and_delete({</span><span class="s2">&quot;_id&quot;</span><span class="s1">: ObjectId(id)})</span>
+    <span class="s0">return </span><span class="s1">{</span><span class="s2">&quot;Status&quot;</span><span class="s1">: </span><span class="s2">&quot;OK&quot;</span><span class="s0">, </span><span class="s2">&quot;Data&quot;</span><span class="s1">: []}</span>
+
+
+<span class="s3"># UPDATE</span>
+
+
+<span class="s1">@iRef_Data1_api_router.put(</span><span class="s2">&quot;/update/{id}&quot;</span><span class="s1">)</span>
+<span class="s0">async def </span><span class="s1">update_iRef_Data1(id: str</span><span class="s0">, </span><span class="s1">iRef_Data1: iRef_Data1):</span>
+    <span class="s1">collection_name.find_one_and_update({</span><span class="s2">&quot;_id&quot;</span><span class="s1">: ObjectId(id)}</span><span class="s0">, </span><span class="s1">{</span><span class="s2">&quot;$set&quot;</span><span class="s1">: dict(iRef_Data1)})</span>
+    <span class="s1">iRef_Data1 = Journal_serializer(collection_name.find({</span><span class="s2">&quot;_id&quot;</span><span class="s1">: ObjectId(id)}))</span>
+    <span class="s0">return </span><span class="s1">{</span><span class="s2">&quot;Status&quot;</span><span class="s1">: </span><span class="s2">&quot;OK&quot;</span><span class="s0">, </span><span class="s2">&quot;Data&quot;</span><span class="s1">: iRef_Data1}</span>
+
+
+<span class="s3"># @iRef_Data1_api_router.post(&quot;/post&quot;)</span>
+<span class="s3"># async def post_iRef_Data1(post: iRef_Data1):</span>
+<span class="s3">#     journal_info = [</span>
+<span class="s3">#         {</span>
+<span class="s3">#             'authors': [{&quot;firstname&quot;: &quot;&quot;, &quot;lastname&quot;: &quot;&quot;}],</span>
+<span class="s3">#             'groups': &quot;&quot;,</span>
+<span class="s3">#             'firstPage': &quot;&quot;,</span>
+<span class="s3">#             'lastPage': &quot;&quot;,</span>
+<span class="s3">#             'issue': &quot;&quot;,</span>
+<span class="s3">#             'journalTitle': &quot;&quot;,</span>
+<span class="s3">#             'articleTitle': &quot;&quot;,</span>
+<span class="s3">#             'type': &quot;&quot;,</span>
+<span class="s3">#             'url': &quot;&quot;,</span>
+<span class="s3">#             'volume': &quot;&quot;,</span>
+<span class="s3">#             'year': &quot;&quot;,</span>
+<span class="s3">#         }</span>
+<span class="s3">#     ]</span>
+<span class="s3">#     iRef_Data1 = collection_name1.insert_many(journal_info)</span>
+<span class="s3">#     return {&quot;Status&quot;: &quot;OK&quot;, &quot;Data&quot;: iRef_Data1}</span>
+
+<span class="s3"># @iRef_Data1_api_router.get('/string')</span>
+<span class="s3"># async def get_iRef_Data1(string):</span>
+<span class="s3">#     response = requests.get(&quot;https://api.publicapis.org/entries&quot;)</span>
+<span class="s3">#     op = response.get()[string]</span>
+<span class="s3">#     return {&quot;status&quot;: &quot;OK&quot;, &quot;Data&quot;: op}</span>
+
+<span class="s3"># { &quot;authors&quot;: [{&quot;firstname&quot;: &quot;&quot;,&quot;lastname&quot;: &quot;&quot;}],&quot;groups&quot;: &quot;&quot;,&quot;firstPage&quot;: &quot;&quot;,&quot;lastPage&quot;: &quot;&quot;,&quot;issue&quot;: &quot;&quot;,&quot;journalTitle&quot;: &quot;&quot;,&quot;articleTitle&quot;: &quot;&quot;,&quot;type&quot;: &quot;journal&quot;,&quot;url&quot;: &quot;&quot;,&quot;volume&quot;: &quot;&quot;,&quot;year&quot;: &quot;&quot;}</span>
+
+
+<span class="s2">'''@iRef_Data_api_router.get(&quot;/{id}}&quot;) 
+async def get_iRef_Data(id: str): 
+    iRef_Data = Journal_serializer(collection_name.find({&quot;_id&quot;: ObjectId(id)})) 
+    return {&quot;Status&quot;: &quot;OK&quot;, &quot;Data&quot;: iRef_Data}'''</span>
+<span class="s3">#  search</span>
+
+
+<span class="s3"># @iRef_Data1_api_router.post(&quot;/Search&quot;)</span>
+<span class="s3"># async def get_iRef_Data1(search: iRef_Data1):</span>
+<span class="s3">#</span>
+<span class="s3">#     myquery = {&quot;$and&quot;:</span>
+<span class="s3">#                   [</span>
+<span class="s3">#                      {</span>
+<span class="s3">#                       &quot;type&quot;: {&quot;$regex&quot;: search.type},</span>
+<span class="s3">#                       &quot;authors&quot;: {&quot;$regex&quot;: search.authors},</span>
+<span class="s3">#                       &quot;groups&quot;: {&quot;$regex&quot;: search.groups},</span>
+<span class="s3">#                       &quot;firstPage&quot;: {&quot;$regex&quot;: search.firstPage},</span>
+<span class="s3">#                       &quot;lastPage&quot;: {&quot;$regex&quot;: search.lastPage},</span>
+<span class="s3">#                       &quot;issue&quot;: {&quot;$regex&quot;: search.issue},</span>
+<span class="s3">#                       &quot;journalTitle&quot;: {&quot;$regex&quot;: search.journalTitle},</span>
+<span class="s3">#                       &quot;articleTitle&quot;: {&quot;$regex&quot;: search.articleTitle},</span>
+<span class="s3">#                       &quot;url&quot;: {&quot;$regex&quot;: search.url},</span>
+<span class="s3">#                       &quot;volume&quot;: {&quot;$regex&quot;: search.volume},</span>
+<span class="s3">#                       &quot;year&quot;: {&quot;$regex&quot;: search.year}</span>
+<span class="s3">#                      }</span>
+<span class="s3">#                   ]</span>
+<span class="s3">#               }</span>
+<span class="s3">#</span>
+<span class="s3">#     iRef_Data1 = Journal_serializer(collection_name.find(myquery))</span>
+<span class="s3">#     return {&quot;Status&quot;: &quot;OK&quot;, &quot;Data&quot;: iRef_Data1}</span>
+
+<span class="s2">''' &quot;authors.firstname&quot;: {&quot;$regex&quot;: search.authors.firstname}, 
+                      &quot;authors.lastname&quot;: {&quot;$regex&quot;: search.authors.lastname},'''</span></pre>
+</body>
+</html>

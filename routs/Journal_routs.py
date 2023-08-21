@@ -1,0 +1,756 @@
+from fastapi import APIRouter, Depends
+from config.Journal import collection_name,col1,col01b,col01j,col02j,col02b,colgj,colgb   #col1 = db0, col01j,b = db01, col02j,b = ICODEX, colgj,colgb = ICODEX-GOLDEN
+from models.Journal_models import iRef_Journal,iRef_Book
+from models.Journal_models import Reference
+from schemas.Journal_schemas import iRef_Data1_serializer, Journal_serializer,Db0db_serializer
+from bson import ObjectId
+from fastapi import FastAPI
+import requests
+from testing1 import dict01
+from modules.ExternalServices import ExternalServs
+from config import Journal
+
+import json
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+
+app = FastAPI()
+
+
+iRef_Data1_api_router = APIRouter()
+
+Oauth_schemas = OAuth2PasswordBearer(tokenUrl="token")
+
+#  get
+
+@iRef_Data1_api_router.post("/token")
+async def LogIn(from_date: OAuth2PasswordRequestForm = Depends()):
+    print(from_date)
+    return {"access_token": from_date.username, "access_type": "bearer"}
+
+@iRef_Data1_api_router.get("/users/profilepic1")
+async def profile_pic(token: str = Depends(Oauth_schemas)):
+    print(token)
+    return {
+
+    }
+
+
+
+@iRef_Data1_api_router.get('/')
+async def get_iRef_Data1(start, end):
+    iRef_Data1 = Journal_serializer(collection_name.find())[int(start):int(end)]
+    return {"status": "OK", "Data": iRef_Data1}
+
+# @iRef_Data1_api_router.get('/find')
+# async def get_iRef_Data1():
+#     iRef_Data1 = Journal_serializer(collection_name.find())
+#     return {"status": "OK", "Data": iRef_Data1}
+
+############DB0 database ##############
+@iRef_Data1_api_router.get('/Db0')
+async def get_Db0(start, end):
+    Db0data = Db0db_serializer(col1.find())[int(start):int(end)]
+    return {"status": "OK", "Data": Db0data}
+
+@iRef_Data1_api_router.get("/{id}")
+async def get_iRef_Data(id: str):
+    iRef_Data = Journal_serializer(collection_name.find({"_id": ObjectId(id)}))
+    return {"Status": "OK", "Data": iRef_Data}
+
+
+@iRef_Data1_api_router.post('/reference')
+async def post_Reference(reference:Reference):
+    final_output = []
+    a = ExternalServs()
+    try:
+
+
+
+
+
+
+
+
+        ##################################################
+        ##################################################
+        count= 0
+        jsonData = a.ExternalSearch(reference.reference)
+
+        for pq in jsonData:
+            print('******************************')
+            print(pq)
+            print('******************************')
+            internalbibid = pq.get('InternalBibId')
+            #################### Db0 configuration ######################################
+            dictdb0 = {}
+            if pq.get('CompleteReference').lower() == 'false' and pq.get('InternalBibId') != internalbibid:
+                print('entering db0')
+                dictdb0['Identity Number'] = pq.get('InternalBibId')
+                dictdb0['ReferenceString'] = pq.get('FullReferenceString')
+                dictdb0['Status'] = 'Incomplete'
+                # final_output.append(dictdb0)
+
+                # final_output.append({'status': 'Incomplete', 'ref': dictdb0})
+                col1.insert_one(dict(dictdb0))  # successfully inserting withoutt errors
+                internalbibid = pq.get('InternalBibId')
+                continue
+
+            elif pq.get('CompleteReference').lower() == 'false' and pq.get('InternalBibId') == internalbibid:
+                continue
+            ###############################################################################
+
+            ################### Db01 configuration #########################################
+            elif pq.get('CompleteReference') == 'true' and pq.get('SearchSystem') == 'PubMed':
+                count += 1
+                print('pubmed entered finally')
+                if pq.get("InternalBibId") is not None:
+                    Id = pq['InternalBibId']
+                else:
+                    Id = ""
+
+                if pq.get("ComparedReferenceString") is not None:
+                    td = pq.get("ComparedReferenceString")
+                else:
+                    td = ""
+                if pq.get("CompleteReference") == 'true':
+                    status = 'Complete'
+                else:
+                    status = 'Incomplete'
+                if pq.get("PubMedId") is not None:
+                    PubMedId = pq.get("PubMedId")
+                else:
+                    PubMedId = ""
+
+                dict01 = {}
+                if pq.get("type".lower()) == 'journal':
+                    mongoninsertlist = []  # just a list to insert to mongodb
+
+                    if pq.get("authors") is not None:
+                        author1 = []
+                        sm = pq.get("authors")
+                        for sa in sm:
+                            dict_2 = {}
+                            if sa.get("lastname") is not None:
+                                dict_2["lastname"] = sa.get("lastname")
+                            else:
+                                dict_2["lastname"] = ""
+                            if sa.get("firstname") is not None:
+                                dict_2["firstname"] = sa.get("firstname")
+                            else:
+                                dict_2["firstname"] = ""
+                            author1.append(dict_2)
+                            dict01["authors"] = author1
+                    else:
+                        dict01["authors"] = []
+
+                    if pq.get("groups") is not None:
+                        groups1 = []
+                        nm = pq.get("groups")
+                        dict_3 = {}
+                        for np in nm:
+                            if np.get("lastname") is not None:
+                                dict_3["lastname"] = np.get("lastname")
+                            else:
+                                dict_3["lastname"] = ""
+                            if np.get("firstname") is not None:
+                                dict_3["firstname"] = np.get("firstname")
+                            else:
+                                dict_3["firstname"] = ""
+                            groups1.append(dict_3)
+                            dict01["groups"] = groups1
+
+                    else:
+                        dict01["groups"] = []
+
+                    if pq.get("firstPage") is not None:
+                        dict01["firstPage"] = pq.get("firstPage")
+                    else:
+                        dict01["firstPage"] = ""
+                    if pq.get("lastPage") is not None:
+                        dict01["lastPage"] = pq.get("lastPage")
+                    else:
+                        dict01["lastPage"] = ""
+                    if pq.get("issue") is not None:
+                        dict01["issue"] = pq.get("issue")
+                    else:
+                        dict01["issue"] = ""
+
+                    if pq.get("CompleteReference") == 'true':
+                        status = 'Complete'
+                    else:
+                        status = 'Incomplete'
+
+                    if pq.get("PubMedId") is not None:
+                        PubMedId = pq.get("PubMedId")
+                    else:
+                        PubMedId = ""
+
+                    if pq.get("journalTitle") is not None:
+                        dict01["journalTitle"] = pq.get("journalTitle")
+                    else:
+                        dict01["journalTitle"] = ""
+                    if pq.get("articleTitle") is not None:
+                        dict01["articleTitle"] = pq.get("articleTitle")
+                    else:
+                        dict01["articleTitle"] = ""
+                    dict01["type"] = pq.get("type")
+
+                    if pq.get("Doi".lower()) is not None:
+                        dict01["doi"] = pq.get("Doi".lower())[5::]
+                    else:
+                        dict01["doi"] = ""
+                    if pq.get("volume") is not None:
+                        dict01["volume"] = pq.get("volume")
+                    else:
+                        dict01["volume"] = ""
+                    if pq.get("elocator") is not None:
+                        dict01["elocator"] = pq.get("elocator")
+                    else:
+                        dict01["elocator"] = ""
+                    if pq.get("year") is not None:
+                        dict01["year"] = pq.get("year")
+                    dict01["referencestyle"] = reference.referenceStyle
+
+                    res = a.Restructuring(dict01)
+
+                    print(dict01)
+                    final_output.append(
+                        {"id": Id, 'Status': status, 'PubMedId': PubMedId, "Sliced_Reference": dict01,
+                         "Structured_Reference": res, "Track_Changes_Reference": td})
+                    print('its good , going into the insert method')
+
+                    mongoninsertlist.append(
+                        {"id": Id, 'Status': status, 'PubMedId': PubMedId, "Sliced_Reference": dict01,
+                         "Structured_Reference": res, "Track_Changes_Reference": td})
+                    col01j.insert_many(mongoninsertlist)
+
+
+
+                # it is a book
+                elif pq.get('type'.lower()) == 'book':
+                    mongodbinsertbook = []
+
+                    if pq.get("authors") is not None:
+                        author1 = []
+                        sm = pq.get("authors")
+                        for sa in sm:
+                            dict_2 = {}
+                            if sa.get("lastname") is not None:
+                                dict_2["lastname"] = sa.get("lastname")
+                            else:
+                                dict_2["lastname"] = ""
+                            if sa.get("firstname") is not None:
+                                dict_2["firstname"] = sa.get("firstname")
+                            else:
+                                dict_2["firstname"] = ""
+                            author1.append(dict_2)
+                            dict01["authors"] = author1
+                    else:
+                        dict01["authors"] = []
+
+                    if pq.get("editors") is not None:
+                        editors1 = []
+                        nm = pq.get("editors")
+                        dict_4 = {}
+                        for np in nm:
+                            if np.get("lastname") is not None:
+                                dict_4["lastname"] = np.get("lastname")
+                            else:
+                                dict_4["lastname"] = ""
+                            if np.get("firstname") is not None:
+                                dict_4["firstname"] = np.get("firstname")
+                            else:
+                                dict_4["firstname"] = ""
+                            editors1.append(dict_4)
+                            dict01["groups"] = editors1
+                    else:
+                        dict01["editors"] = []
+                    if pq.get("groups") is not None:
+                        groups1 = []
+                        nm = pq.get("groups")
+                        dict_3 = {}
+                        for np in nm:
+                            if np.get("lastname") is not None:
+                                dict_3["lastname"] = np.get("lastname")
+                            else:
+                                dict_3["lastname"] = ""
+                            if np.get("firstname") is not None:
+                                dict_3["firstname"] = np.get("firstname")
+                            else:
+                                dict_3["firstname"] = ""
+                            groups1.append(dict_3)
+                            dict01["groups"] = groups1
+                    else:
+                        dict01["groups"] = []
+                    # if pq.get("groups") is not None:
+                    #     dict["groups"] = pq.get("groups")
+                    # else:
+                    #     dict["groups"] = []
+                    if pq.get("firstPage") is not None:
+                        dict01["firstPage"] = pq.get("firstPage")
+                    else:
+                        dict01["firstPage"] = ""
+                    if pq.get("lastPage") is not None:
+                        dict01["lastPage"] = pq.get("lastPage")
+                    else:
+                        dict01["lastPage"] = ""
+
+                    if pq.get("CompleteReference") == 'true':
+                        status = 'Complete'
+                    else:
+                        status = 'Incomplete'
+
+                    if pq.get("PubMedId") is not None:
+                        PubMedId = pq.get("PubMedId")
+                    else:
+                        PubMedId = ""
+
+                    if pq.get("bookTitle") is not None:
+                        dict01["bookTitle"] = pq.get("bookTitle")
+                    else:
+                        dict01["bookTitle"] = ""
+                    if pq.get("chapterTitle") is not None:
+                        dict01["chapterTitle"] = pq.get("chapterTitle")
+                    else:
+                        dict01["chapterTitle"] = ""
+                    if pq.get("type") is not None:
+                        dict01["type"] = pq.get("type")
+                    else:
+                        dict01["type"] = ""
+
+                    #dict01["referencestyle"] = reference.referenceStyle
+
+                    if pq.get("doi") is not None:
+                        dict01["doi"] = pq.get("doi")
+                    else:
+                        dict01["doi"] = ""
+
+                    if pq.get("volume") is not None:
+                        dict01["volume"] = pq.get("volume")
+                    else:
+                        dict01["volume"] = ""
+                    if pq.get("volume") is not None:
+                        dict01["volume"] = pq.get("volume")
+                    else:
+                        dict01["volume"] = ""
+                    if pq.get("year") is not None:
+                        dict01["year"] = pq.get("year")
+                    else:
+                        dict01["year"] = ""
+
+                    if pq.get("edition") is not None:
+                        dict01["edition"] = pq.get("edition")
+                    else:
+                        dict01["edition"] = ""
+                    if pq.get("publisherLocation") is not None:
+                        dict01["publilsherLocation"] = pq.get("publisherLocation")
+                    else:
+                        dict01["publilsherLocation"] = ""
+                    if pq.get("publisherName") is not None:
+                        dict01["publisherName"] = pq.get("publisherName")
+                    else:
+                        dict01["publisherName"] = ""
+                    dict01["referencestyle"] = reference.referenceStyle
+
+                    # if pq.get("issue") is not None:
+                    #   dict["issue"] = pq.get("issue")
+                    # else:
+                    #   dict["issue"] = ""
+
+                    finaljson = json.dumps(dict01, indent=2, sort_keys=True)
+                    # print(finaljson)
+
+                    url = "https://irefservices.icodex.in/iref/reference/restructure"
+
+                    payload = json.dumps(
+                        dict01
+                    )
+                    headers = {
+                        'JID': 'ASAP',
+                        'eAssistantXApiKey': 'CUCCLI11UI#AB',
+                        'Content-Type': 'application/json'
+                    }
+
+                    response = requests.request("POST", url, headers=headers, data=payload)
+                    restructredjson = response.json()
+                    res = (restructredjson["Reference"])
+                    final_output.append(
+                        {"id": Id, 'Status': status, 'PubMedId': PubMedId, "Sliced_Reference": dict01,
+                         "Structured_Reference": res, "Track_Changes_Reference": td})
+                    mongodbinsertbook.append(
+                        {"id": Id, 'Status': status, 'PubMedId': PubMedId, "Sliced_Reference": dict01,
+                         "Structured_Reference": res, "Track_Changes_Reference": td})
+                    col01b.insert_many(mongodbinsertbook)
+
+
+            elif pq.get('CompleteReference').lower() == 'true':
+                if pq.get("InternalBibId") is not None:
+                    Id = pq['InternalBibId']
+                else:
+                    Id = ""
+
+                dict01 = {}
+                if pq.get("type".lower()) == 'journal':
+                    mongoninsertlist = []  # just a list to insert to mongodb
+
+                    if pq.get("authors") is not None:
+                        author1 = []
+                        sm = pq.get("authors")
+                        for sa in sm:
+                            dict_2 = {}
+                            if sa.get("lastname") is not None:
+                                dict_2["lastname"] = sa.get("lastname")
+                            else:
+                                dict_2["lastname"] = ""
+                            if sa.get("firstname") is not None:
+                                dict_2["firstname"] = sa.get("firstname")
+                            else:
+                                dict_2["firstname"] = ""
+                            author1.append(dict_2)
+                            dict01["authors"] = author1
+                    else:
+                        dict01["authors"] = []
+
+                    if pq.get("groups") is not None:
+                        groups1 = []
+                        nm = pq.get("groups")
+                        dict_3 = {}
+                        for np in nm:
+                            if np.get("lastname") is not None:
+                                dict_3["lastname"] = np.get("lastname")
+                            else:
+                                dict_3["lastname"] = ""
+                            if np.get("firstname") is not None:
+                                dict_3["firstname"] = np.get("firstname")
+                            else:
+                                dict_3["firstname"] = ""
+                            groups1.append(dict_3)
+                            dict01["groups"] = groups1
+
+                    else:
+                        dict01["groups"] = []
+
+                    if pq.get("firstPage") is not None:
+                        dict01["firstPage"] = pq.get("firstPage")
+                    else:
+                        dict01["firstPage"] = ""
+                    if pq.get("lastPage") is not None:
+                        dict01["lastPage"] = pq.get("lastPage")
+                    else:
+                        dict01["lastPage"] = ""
+                    if pq.get("issue") is not None:
+                        dict01["issue"] = pq.get("issue")
+                    else:
+                        dict01["issue"] = ""
+
+                    if pq.get("journalTitle") is not None:
+                        dict01["journalTitle"] = pq.get("journalTitle")
+                    else:
+                        dict01["journalTitle"] = ""
+                    if pq.get("articleTitle") is not None:
+                        dict01["articleTitle"] = pq.get("articleTitle")
+                    else:
+                        dict01["articleTitle"] = ""
+                    dict01["type"] = pq.get("type")
+
+                    if pq.get("Doi".lower()) is not None:
+                        dict01["doi"] = pq.get("Doi".lower())[5::]
+                    else:
+                        dict01["doi"] = ""
+                    if pq.get("volume") is not None:
+                        dict01["volume"] = pq.get("volume")
+                    else:
+                        dict01["volume"] = ""
+                    if pq.get("elocator") is not None:
+                        dict01["elocator"] = pq.get("elocator")
+                    else:
+                        dict01["elocator"] = ""
+                    if pq.get("year") is not None:
+                        dict01["year"] = pq.get("year")
+                    if pq.get("SearchSystem") is not None:
+                        SearchSystem = pq.get("SearchSystem")
+                    else:
+                        SearchSystem = ""
+
+                    mongoninsertlist.append(
+                        {"identity number": Id, 'SearchSystem': SearchSystem, "Sliced_Reference": dict01})
+                    col02j.insert_many(mongoninsertlist)
+
+
+
+                # it is a book
+                elif pq.get('type'.lower()) == 'book':
+                    mongodbinsertbook = []
+
+                    if pq.get("authors") is not None:
+                        author1 = []
+                        sm = pq.get("authors")
+                        for sa in sm:
+                            dict_2 = {}
+                            if sa.get("lastname") is not None:
+                                dict_2["lastname"] = sa.get("lastname")
+                            else:
+                                dict_2["lastname"] = ""
+                            if sa.get("firstname") is not None:
+                                dict_2["firstname"] = sa.get("firstname")
+                            else:
+                                dict_2["firstname"] = ""
+                            author1.append(dict_2)
+                            dict01["authors"] = author1
+                    else:
+                        dict01["authors"] = []
+
+                    if pq.get("editors") is not None:
+                        editors1 = []
+                        nm = pq.get("editors")
+                        dict_4 = {}
+                        for np in nm:
+                            if np.get("lastname") is not None:
+                                dict_4["lastname"] = np.get("lastname")
+                            else:
+                                dict_4["lastname"] = ""
+                            if np.get("firstname") is not None:
+                                dict_4["firstname"] = np.get("firstname")
+                            else:
+                                dict_4["firstname"] = ""
+                            editors1.append(dict_4)
+                            dict01["groups"] = editors1
+                    else:
+                        dict01["editors"] = []
+                    if pq.get("groups") is not None:
+                        groups1 = []
+                        nm = pq.get("groups")
+                        dict_3 = {}
+                        for np in nm:
+                            if np.get("lastname") is not None:
+                                dict_3["lastname"] = np.get("lastname")
+                            else:
+                                dict_3["lastname"] = ""
+                            if np.get("firstname") is not None:
+                                dict_3["firstname"] = np.get("firstname")
+                            else:
+                                dict_3["firstname"] = ""
+                            groups1.append(dict_3)
+                            dict01["groups"] = groups1
+                    else:
+                        dict01["groups"] = []
+                    # if pq.get("groups") is not None:
+                    #     dict["groups"] = pq.get("groups")
+                    # else:
+                    #     dict["groups"] = []
+                    if pq.get("firstPage") is not None:
+                        dict01["firstPage"] = pq.get("firstPage")
+                    else:
+                        dict01["firstPage"] = ""
+                    if pq.get("lastPage") is not None:
+                        dict01["lastPage"] = pq.get("lastPage")
+                    else:
+                        dict01["lastPage"] = ""
+
+                    if pq.get("CompleteReference") == 'true':
+                        status = 'Complete'
+                    else:
+                        status = 'Incomplete'
+
+                    if pq.get("PubMedId") is not None:
+                        PubMedId = pq.get("PubMedId")
+                    else:
+                        PubMedId = ""
+
+                    if pq.get("bookTitle") is not None:
+                        dict01["bookTitle"] = pq.get("bookTitle")
+                    else:
+                        dict01["bookTitle"] = ""
+                    if pq.get("chapterTitle") is not None:
+                        dict01["chapterTitle"] = pq.get("chapterTitle")
+                    else:
+                        dict01["chapterTitle"] = ""
+                    if pq.get("type") is not None:
+                        dict01["type"] = pq.get("type")
+                    else:
+                        dict01["type"] = ""
+
+                    dict01["referencestyle"] = reference.referenceStyle
+
+                    if pq.get("doi") is not None:
+                        dict01["doi"] = pq.get("doi")
+                    else:
+                        dict01["doi"] = ""
+
+                    if pq.get("volume") is not None:
+                        dict01["volume"] = pq.get("volume")
+                    else:
+                        dict01["volume"] = ""
+                    if pq.get("volume") is not None:
+                        dict01["volume"] = pq.get("volume")
+                    else:
+                        dict01["volume"] = ""
+                    if pq.get("year") is not None:
+                        dict01["year"] = pq.get("year")
+                    else:
+                        dict01["year"] = ""
+
+                    if pq.get("edition") is not None:
+                        dict01["edition"] = pq.get("edition")
+                    else:
+                        dict01["edition"] = ""
+                    if pq.get("publisherLocation") is not None:
+                        dict01["publilsherLocation"] = pq.get("publisherLocation")
+                    else:
+                        dict01["publilsherLocation"] = ""
+                    if pq.get("publisherName") is not None:
+                        dict01["publisherName"] = pq.get("publisherName")
+                    else:
+                        dict01["publisherName"] = ""
+                    if pq.get("SearchSystem") is not None:
+                        SearchSystem = pq.get("publisherName")
+                    else:
+                        SearchSystem = ""
+
+
+                    mongodbinsertbook.append(
+                        {"identity number": Id, 'SearchSystem': SearchSystem, "Sliced_Reference": dict01})
+                    col02b.insert_many(mongodbinsertbook)
+
+
+
+            else:
+                pass  # last thing to do
+        if count > 0:
+            return {"Success": "true", "output": final_output}  # dispalying final output
+
+        else:
+            return {'message': 'reference not found'}
+    except Exception as e:
+        #return {print(reference)}
+        return f'Exception arose, sorry,Exception: {e}'
+        #print(payload)
+
+
+#  search
+
+
+# @iRef_Data1_api_router.post("/Search")
+# async def get_iRef_Data1(search: iRef_Data1):
+#
+#     myquery = {"$and":
+#                   [
+#                      {
+#                       "type": {"$regex": search.type},
+#                       "authors": {"$regex": search.authors},
+#                       "groups": {"$regex": search.groups},
+#                       "firstPage": {"$regex": search.firstPage},
+#                       "lastPage": {"$regex": search.lastPage},
+#                       "issue": {"$regex": search.issue},
+#                       "journalTitle": {"$regex": search.journalTitle},
+#                       "articleTitle": {"$regex": search.articleTitle},
+#                       "url": {"$regex": search.url},
+#                       "volume": {"$regex": search.volume},
+#                       "year": {"$regex": search.year}
+#                      }
+#                   ]
+#               }
+#
+#     iRef_Data1 = Journal_serializer(collection_name.find(myquery))
+#     return {"Status": "OK", "Data": iRef_Data1}
+
+''' "authors.firstname": {"$regex": search.authors.firstname},
+                      "authors.lastname": {"$regex": search.authors.lastname},'''
+#  post
+
+
+# @iRef_Data1_api_router.post("/")
+# async def post_iRef_Data1(iRef_Data1: iRef_Data1):
+#     _id = collection_name.insert_one(dict(iRef_Data1))
+#     iRef_Data1 = Journal_serializer(collection_name.find({"_id": _id.inserted_id}))
+#     return {"Status": "OK", "Data": iRef_Data1}
+
+###################RandD###############
+# @iRef_Data1_api_router.post("/db01")
+# async def post_iRef_Data1(iRef_Data1: iRef_Data1):
+#     _id = col01.insert_one(dict(iRef_Data1))
+#     iRef_Data1 = Journal_serializer(col01.find({"_id": _id.inserted_id}))
+#     return {"Status": "OK", "Data": iRef_Data1}
+
+#######################################
+
+@iRef_Data1_api_router.delete("/{id}")
+async def delete_iRef_Data1(id: str):
+    collection_name.find_one_and_delete({"_id": ObjectId(id)})
+    return {"Status": "OK", "Data": []}
+
+
+# UPDATE
+
+
+# @iRef_Data1_api_router.put("/update/{id}")
+# async def update_iRef_Data1(id: str, iRef_Data1: iRef_Data1):
+#     collection_name.find_one_and_update({"_id": ObjectId(id)}, {"$set": dict(iRef_Data1)})
+#     #iRef_Data1 = Journal_serializer(collection_name.find({"_id": ObjectId(id)}))
+#     return {"Status": "OK", "Data": iRef_Data1}
+
+
+# @iRef_Data1_api_router.put("/Db0/{id}")
+# async def update_iRef_Data1(id: str, iRef_Data1: iRef_Data1):
+#     col1.find_one_and_update({"_id":id}, {"$set": dict(iRef_Data1)})
+#     #iRef_Data1 = Journal_serializer(collection_name.find({"_id": ObjectId(id)}))
+#     return {"Status": "OK", "Data": iRef_Data1}
+
+
+@iRef_Data1_api_router.post('/Db01/journal')
+async def journal_db01(refid,journal:iRef_Journal):
+    x = col01j.insert_one(dict(journal))
+
+
+    #r and d#######3
+    for i in col1.find():
+        print(i)
+        filter = {'_id': ObjectId(str(refid))}
+        newvalues = {"$set": {'Status': 'completed'}}
+        col1.update_one(filter, newvalues)
+
+    return {'refid': str(x.inserted_id), 'message': 'Successfully saved the reference to database 01'}
+
+@iRef_Data1_api_router.post('/Db01/book')
+async def book_db01(refid,book:iRef_Book):
+    x = col01b.insert_one(dict(book))
+
+    for i in col1.find():
+        print(i)
+        filter = {'_id': ObjectId(str(refid))}
+        newvalues = {"$set": {'Status': 'completed'}}
+        col1.update_one(filter, newvalues)
+
+    return {'ref id': str(x.inserted_id), 'message': 'Successfully saved the reference to database 01'}
+
+
+@iRef_Data1_api_router.post('/testing/reference')
+async def post_Reference(reference:Reference):
+    final_output= []
+    count = 1
+
+    for i in dict01:
+        url = "https://irefservices.icodex.in/iref/reference/restructure"
+
+        payload = json.dumps(i)
+        headers = {
+            'JID': 'ASAP',
+            'eAssistantXApiKey': 'CUCCLI11UI#AB',
+            'Content-Type': 'application/json'
+        }
+
+        response = requests.request("POST", url, headers=headers, data=payload)
+        restructredjson = response.json()
+        res = (restructredjson["Reference"])
+        print(res)
+
+        final_output.append(
+            {"id": f'bib{count}', 'Status': 'Complete', 'PubMedId': '123456', "Sliced_Reference": i,
+             "Structured_Reference": res, "Track_Changes_Reference": ''})
+        count +=1
+
+
+
+    return {"Success": "true", "output": final_output}
+
+
